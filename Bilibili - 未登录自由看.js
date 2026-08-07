@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      4.0.0-alpha.24
+// @version      4.0.0-alpha.25
 // @description  🎬 B站未登录自由看 | 协议级 + 客户端双兼容解锁：伪造 DedeUserID · 清空 __playinfo__ SSR · WBI 重签 playurl（try_look=1/qn=80）直出 1080P · SPA 切视频 state 对齐后重签 · 安全改写 player/wbi/v2 登录态；客户端自动试用画质 + 拦截画质劫持 | 拦 rcmd / 清 buvid3 防登录弹窗 · 屏蔽自动暂停 · 只读评论（仅替换评论容器，保护顶栏）· 原生控制栏倍速 · 全屏前进/后退 · 长按前进临时倍速 · 直播分区兜底 · 面板切换 1080/720/480/360P · 无远程样式依赖
 // @license      GPL-3.0
 // @author       zhikanyeye
@@ -69,6 +69,12 @@
     list: /^https:\/\/www\.bilibili\.com\/list\//,
     live: /^https:\/\/live\.bilibili\.com\//
   };
+
+  function isPlaybackPage() {
+    return PAGE_RE.video.test(location.href)
+      || PAGE_RE.festival.test(location.href)
+      || PAGE_RE.list.test(location.href);
+  }
 
   /* ========== 工具函数 ========== */
   function waitForElement(selector, timeout = 10000) {
@@ -597,7 +603,7 @@
     // pathname / aid / cid 轮询（推荐栏点视频有时不触发完整 history 语义）
     setInterval(() => {
       try {
-        if (!PAGE_RE.video.test(location.href) && !PAGE_RE.festival.test(location.href) && !PAGE_RE.list.test(location.href)) return;
+        if (!isPlaybackPage()) return;
         triggerSwitch('poll-watch');
       } catch (e) {}
     }, 400);
@@ -606,7 +612,7 @@
   // 协议级开启时也装：试用按钮点击 + 画质掉落监听 + SPA 切视频检测
   function installAlwaysQualityGuard() {
     if (isBilibiliLoggedIn()) return;
-    if (!PAGE_RE.video.test(location.href) && !PAGE_RE.festival.test(location.href) && !PAGE_RE.list.test(location.href)) return;
+    if (!isPlaybackPage()) return;
 
     let dropStarted = false;
     let lastRefetchAt = 0;
@@ -779,7 +785,7 @@
   }
 
   function isVideoCommentPage() {
-    return PAGE_RE.video.test(location.href) || PAGE_RE.list.test(location.href) || PAGE_RE.festival.test(location.href);
+    return isPlaybackPage();
   }
 
   function isCommentDetailPage() {
@@ -1273,7 +1279,7 @@
 
   function installPlayurlUnlock() {
     if (!options.enableProtocolUnlock) return;
-    if (!PAGE_RE.video.test(location.href) && !PAGE_RE.festival.test(location.href) && !PAGE_RE.list.test(location.href)) return;
+    if (!isPlaybackPage()) return;
     if (isBilibiliLoggedIn()) return;
     if (playurlUnlockInstalled) return;
     playurlUnlockInstalled = true;
@@ -2452,6 +2458,7 @@
       let currentMedia = null;
       let isUserPaused = false;
       let hasPlaybackStarted = false;
+      let hasMediaEnded = false;
 
       const markTrustedAction = (event) => {
         if (event && event.isTrusted === false) return;
@@ -2460,6 +2467,14 @@
 
       const canPauseNow = () => {
         return allowInternalPause || Date.now() - lastTrustedActionTime <= CONFIG.CLICK_TIMEOUT;
+      };
+
+      const isAtMediaEnd = (media) => {
+        if (!media) return false;
+        if (media.ended) return true;
+        return Number.isFinite(media.duration)
+          && media.duration > 0
+          && media.currentTime >= media.duration - 0.5;
       };
 
       document.addEventListener('pointerdown', markTrustedAction, { passive: true, capture: true });
@@ -2474,6 +2489,7 @@
       if (originPause) {
         player.pause = function () {
           if (currentMedia && !hasPlaybackStarted) return originPause(...arguments);
+          if (isAtMediaEnd(currentMedia)) return originPause(...arguments);
           if (!canPauseNow()) return;
           return originPause(...arguments);
         };
@@ -2514,7 +2530,7 @@
       };
 
       const safePlay = (media, reason = 'resume') => {
-        if (!media) return Promise.resolve();
+        if (!media || hasMediaEnded || isAtMediaEnd(media)) return Promise.resolve();
         return Promise.resolve(media.play()).then(() => {
           // 自动播放策略可能把视频静音；立即尝试恢复，用户手势后再保底一次
           restoreUnmute(media, reason);
@@ -2555,6 +2571,7 @@
 
         media.pause = function () {
           if (!hasPlaybackStarted) return originMediaPause();
+          if (isAtMediaEnd(media)) return originMediaPause();
           if (!canPauseNow()) return;
           return originMediaPause();
         };
@@ -2563,6 +2580,10 @@
           if (media !== currentMedia || !media.isConnected) return;
           if (!hasPlaybackStarted) return;
           if (allowInternalPause) return;
+          if (hasMediaEnded || isAtMediaEnd(media)) {
+            hasMediaEnded = true;
+            return;
+          }
 
           if (Date.now() - lastTrustedActionTime <= CONFIG.CLICK_TIMEOUT) {
             isUserPaused = true;
@@ -2575,6 +2596,7 @@
 
         media.addEventListener('play', () => {
           if (media !== currentMedia || !media.isConnected) return;
+          hasMediaEnded = false;
           hasPlaybackStarted = true;
           isUserPaused = false;
           restoreUnmute(media, 'play-event');
@@ -2585,7 +2607,14 @@
           restoreUnmute(media, 'playing-event');
         }, true);
 
+        media.addEventListener('ended', () => {
+          if (media !== currentMedia || !media.isConnected) return;
+          hasMediaEnded = true;
+          isUserPaused = false;
+        }, true);
+
         media.addEventListener('loadedmetadata', () => {
+          hasMediaEnded = false;
           rememberVolumeFrom(media);
           // 刷新后媒体常以 muted 初始化，若用户未主动静音则恢复
           setTimeout(() => restoreUnmute(media, 'loadedmetadata'), 50);
@@ -2600,6 +2629,7 @@
           const media = unsafeWindow.player?.mediaElement?.();
           if (media && media !== currentMedia) {
             currentMedia = media;
+            hasMediaEnded = !!media.ended;
             hasPlaybackStarted = !media.paused && !media.ended;
             isUserPaused = false;
             bindMediaGuard(media);
@@ -2617,6 +2647,7 @@
           bindMediaGuard(media);
           if (media && media !== currentMedia) {
             currentMedia = media;
+            hasMediaEnded = !!media.ended;
             hasPlaybackStarted = !media.paused && !media.ended;
             isUserPaused = false;
           } else {
@@ -2628,7 +2659,7 @@
 
       setInterval(() => {
         const media = currentMedia;
-        if (!media || !hasPlaybackStarted || media.ended || document.hidden || allowInternalPause || isUserPaused) return;
+        if (!media || !hasPlaybackStarted || hasMediaEnded || media.ended || document.hidden || allowInternalPause || isUserPaused) return;
         if (media.paused) {
           safePlay(media, 'auto-resume');
         } else if (media.muted && !userWantsMuted) {
@@ -2828,7 +2859,7 @@
   /* 倍速控制模块（参考 polywock/globalSpeed 的 GhostMode：原型级 playbackRate setter 拦截 + 校验回写，强制绕过站点自定义 setter）
      MIT License, Copyright (c) polywock — 仅借鉴核心兼容机制，缩窄到 B 站 media 元素 */
   function installPlaybackRateController() {
-    const isVideoPage = PAGE_RE.video.test(location.href) || PAGE_RE.festival.test(location.href) || PAGE_RE.list.test(location.href);
+    const isVideoPage = isPlaybackPage();
     const isLivePage = PAGE_RE.live.test(location.href);
 
     const proto = (unsafeWindow.HTMLMediaElement || HTMLMediaElement).prototype;
