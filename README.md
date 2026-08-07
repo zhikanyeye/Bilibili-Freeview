@@ -4,10 +4,10 @@
 
 **未登录高画质、只读评论与播放器增强，一份脚本集中解决。**
 
-[![Version](https://img.shields.io/badge/version-4.0.0--alpha.24-f59e0b?style=for-the-badge)](#更新日志)
+[![Version](https://img.shields.io/badge/version-4.0.0--alpha.25-f59e0b?style=for-the-badge)](#更新日志)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装-f97316?style=for-the-badge)](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B)
-[![jsDelivr](https://img.shields.io/badge/jsDelivr-alpha.24-0284c7?style=for-the-badge)](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@eb70ac706f26719c9ea5d1267d423e3554f43187/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js)
+[![jsDelivr](https://img.shields.io/badge/jsDelivr-alpha.25-0284c7?style=for-the-badge)](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@08495b7f7b78eaf0a2ae6a4b27bdcf650345a3d8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js)
 
 在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
 
@@ -16,7 +16,7 @@
 </div>
 
 > [!TIP]
-> 当前版本为 `4.0.0-alpha.24`。普通用户可使用 Greasy Fork，测试最新 alpha 功能可使用固定提交的 jsDelivr 地址。
+> 当前版本为 `4.0.0-alpha.25`。普通用户可使用 Greasy Fork，测试最新 alpha 功能可使用固定提交的 jsDelivr 地址。
 
 ## 主要功能
 
@@ -35,13 +35,13 @@
 | 渠道 | 安装地址 | 说明 |
 |---|---|---|
 | Greasy Fork | [安装稳定发布版](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B) | 使用平台更新机制 |
-| jsDelivr | [安装 v4.0.0-alpha.24](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@eb70ac706f26719c9ea5d1267d423e3554f43187/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js) | 固定到描述更新提交 `eb70ac7` |
+| jsDelivr | [安装 v4.0.0-alpha.25](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@08495b7f7b78eaf0a2ae6a4b27bdcf650345a3d8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js) | 固定到版本提交 `08495b7` |
 | GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Free-Quality) | 查看代码、提交记录与 Issues |
 
 安装后打开支持的 B 站页面即可运行。画质、评论、直播和防登录功能建议在未登录窗口中测试。
 
 > [!IMPORTANT]
-> jsDelivr 地址固定到脚本描述更新提交 `eb70ac7`，可避免分支后续变化影响当前安装内容。
+> jsDelivr 地址固定到版本提交 `08495b7`，可避免分支后续变化影响当前安装内容。
 
 ## 快速使用
 
@@ -166,6 +166,10 @@
 ## 更新日志
 
 以下内容记录各版本当时的行为。当前功能、入口和限制以前文说明为准。
+
+### v4.0.0-alpha.25 (2026-08-07)
+- **播完暂停修复**：视频结束后的 `pause` 事件会保持结束状态，避免防自动暂停逻辑将视频从开头重新播放
+- **播放器状态同步**：播放器暂停和自动恢复逻辑增加媒体末尾判定，保持“播完暂停”设置的预期行为
 
 ### v4.0.0-alpha.24 (2026-07-20)
 - **前进按钮复用**：短按前进按钮继续按配置跳转，长按 2 秒进入临时倍速，保持播放器界面轻量
