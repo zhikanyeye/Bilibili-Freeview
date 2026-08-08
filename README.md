@@ -207,6 +207,12 @@
 - [Greasy Fork 讨论区](https://greasyfork.org/zh-CN/scripts/542804/feedback)
 - 在评论区留言
 
+## 赞赏支持
+
+如果这个脚本对你有帮助，可以通过赞赏支持后续维护：
+
+![赞赏码](https://img.flexxi.me/file/gWAR0cUE.webp)
+
 ## 推荐工具
 
 > **AgentRouter 大模型中转站**
