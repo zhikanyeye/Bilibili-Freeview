@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      4.0.0-alpha.25
-// @description  🎬 B站未登录自由看 | 协议级 + 客户端双兼容解锁：伪造 DedeUserID · 清空 __playinfo__ SSR · WBI 重签 playurl（try_look=1/qn=80）直出 1080P · SPA 切视频 state 对齐后重签 · 安全改写 player/wbi/v2 登录态；客户端自动试用画质 + 拦截画质劫持 | 拦 rcmd / 清 buvid3 防登录弹窗 · 屏蔽自动暂停 · 只读评论（仅替换评论容器，保护顶栏）· 原生控制栏倍速 · 全屏前进/后退 · 长按前进临时倍速 · 直播分区兜底 · 面板切换 1080/720/480/360P · 无远程样式依赖
+// @version      4.0.0-alpha.26
+// @description  B站未登录观看增强：高清画质、只读评论、倍速、前进后退、防自动暂停和直播分区连续加载。
 // @license      GPL-3.0
 // @author       zhikanyeye
 // @match        https://www.bilibili.com/video/*
@@ -58,6 +58,9 @@
     seekForwardSeconds: Math.max(1, Math.min(300, Math.round(Number(GM_getValue('seekForwardSeconds', 15)) || 15))),
     holdPlaybackRate: Math.max(1, Math.min(16, Number(GM_getValue('holdPlaybackRate', 2)) || 2))
   };
+
+  // 菜单需在其他模块之前注册，避免页面初始化异常或登录分支影响设置入口。
+  installSettingsPanel();
 
   const PAGE_RE = {
     video: /^https:\/\/www\.bilibili\.com\/video\//,
@@ -3376,7 +3379,8 @@
   }
 
   /* ========== 4. 设置面板 ========== */
-  GM_addStyle(`
+  function installSettingsPanel() {
+    GM_addStyle(`
 #qp-panel{position:fixed;inset:0;z-index:999999;display:none;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px)}
 .qp-wrapper{width:90%;max-width:420px;padding:20px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:16px;font-size:14px;font-family:sans-serif}
 .qp-title{margin:0 0 8px;font-size:22px;font-weight:600;color:#333;border-bottom:2px solid #00aeec;padding-bottom:8px}
@@ -3393,9 +3397,9 @@ select:hover{border-color:#00aeec}
 .qp-section-divider{height:1px;background:#e0e0e0;margin:8px 0}
 `);
 
-  const panel = document.createElement('div');
-  panel.id = 'qp-panel';
-  panel.innerHTML = `
+    const panel = document.createElement('div');
+    panel.id = 'qp-panel';
+    panel.innerHTML = `
     <div class="qp-wrapper">
       <div class="qp-title">🎬 画质设置</div>
       <div class="qp-row">
@@ -3435,97 +3439,106 @@ select:hover{border-color:#00aeec}
       </div>
       <button class="qp-close-btn" onclick="this.parentElement.parentElement.style.display='none'">✓ 保存并关闭</button>
     </div>`;
-  
-  // 等待 body 加载完成再添加面板
-  const addPanel = () => {
+
+    // 等待 body 加载完成再添加面板
+    const addPanel = () => {
+      if (panel.isConnected) return;
+      if (document.body) {
+        document.body.appendChild(panel);
+      } else {
+        document.addEventListener('DOMContentLoaded', addPanel, { once: true });
+      }
+    };
+    addPanel();
+
+    /* 注册 GM 菜单 & 播放器入口 */
+    GM_registerMenuCommand('🎬 画质设置', () => {
+      addPanel();
+      panel.style.display = 'flex';
+    });
+
+    let settingsEntry = null;
+    const addSettingsEntry = () => {
+      if (settingsEntry?.isConnected) return;
+
+      const others = document.querySelector('.bpx-player-ctrl-setting-others-content');
+      if (!others) return;
+
+      settingsEntry = document.createElement('div');
+      settingsEntry.textContent = '🎬 脚本设置 >';
+      settingsEntry.style.cssText = 'cursor:pointer;height:20px;line-height:20px;padding:4px 8px;transition:background .2s';
+      settingsEntry.onmouseenter = () => { settingsEntry.style.background = 'rgba(0,174,236,0.1)'; };
+      settingsEntry.onmouseleave = () => { settingsEntry.style.background = ''; };
+      settingsEntry.onclick = () => { panel.style.display = 'flex'; };
+      others.appendChild(settingsEntry);
+    };
+
+    let entryMountTimer = null;
+    const scheduleSettingsEntry = () => {
+      if (settingsEntry?.isConnected || entryMountTimer) return;
+      entryMountTimer = setTimeout(() => {
+        entryMountTimer = null;
+        addSettingsEntry();
+      }, 100);
+    };
+    const settingsObserver = new MutationObserver(scheduleSettingsEntry);
+
+    const startObserving = () => {
+      addPanel();
+      addSettingsEntry();
+      settingsObserver.observe(document.body, { childList: true, subtree: true });
+    };
+
     if (document.body) {
-      document.body.appendChild(panel);
+      startObserving();
     } else {
-      document.addEventListener('DOMContentLoaded', () => document.body.appendChild(panel));
+      document.addEventListener('DOMContentLoaded', startObserving, { once: true });
     }
-  };
-  addPanel();
 
-  /* 注册 GM 菜单 & 播放器入口 */
-  GM_registerMenuCommand('🎬 画质设置', () => (panel.style.display = 'flex'));
+    /* 事件绑定：即时存储 */
+    panel.querySelectorAll('[data-key]').forEach(el => {
+      if (el.tagName === 'SELECT') {
+        el.onchange = e => {
+          const value = e.target.value;
+          options.preferQuality = value;
+          GM_setValue(el.dataset.key, value);
+        };
+      } else {
+        el.onclick = () => {
+          const newStatus = el.dataset.status === 'on' ? 'off' : 'on';
+          el.dataset.status = newStatus;
+          const isOn = newStatus === 'on';
+          const key = el.dataset.key;
 
-  let entryAdded = false;
-  const addSettingsEntry = () => {
-    if (entryAdded) return;
-    
-    const others = document.querySelector('.bpx-player-ctrl-setting-others-content');
-    if (!others) return;
-    
-    const entry = document.createElement('div');
-    entry.textContent = '🎬 脚本设置 >';
-    entry.style.cssText = 'cursor:pointer;height:20px;line-height:20px;padding:4px 8px;transition:background .2s';
-    entry.onmouseenter = () => { entry.style.background = 'rgba(0,174,236,0.1)'; };
-    entry.onmouseleave = () => { entry.style.background = ''; };
-    entry.onclick = () => { panel.style.display = 'flex'; };
-    others.appendChild(entry);
-    entryAdded = true;
-  };
-  
-  const settingsObserver = new MutationObserver(() => {
-    if (!entryAdded) addSettingsEntry();
-  });
-  
-  const startObserving = () => {
-    const settingsPanel = document.querySelector('.bpx-player-ctrl-setting');
-    if (settingsPanel) {
-      settingsObserver.observe(settingsPanel, { childList: true, subtree: true });
-    }
-  };
-  
-  if (document.body) {
-    startObserving();
-  } else {
-    document.addEventListener('DOMContentLoaded', startObserving);
+          if (key === 'isWaitUntilHighQualityLoaded') {
+            options.isWaitUntilHighQualityLoaded = isOn;
+          } else if (key === 'enableCommentUnlock') {
+            options.enableCommentUnlock = isOn;
+          } else if (key === 'enableReplyPagination') {
+            options.enableReplyPagination = isOn;
+          } else if (key === 'enableLiveAreaUnlock') {
+            options.enableLiveAreaUnlock = isOn;
+          } else if (key === 'enableProtocolUnlock') {
+            options.enableProtocolUnlock = isOn;
+          }
+
+          GM_setValue(key, isOn);
+        };
+      }
+    });
+
+    // 支持 ESC 键关闭面板
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panel.style.display === 'flex') {
+        panel.style.display = 'none';
+      }
+    });
+
+    // 点击背景关闭面板
+    panel.addEventListener('click', (e) => {
+      if (e.target === panel) {
+        panel.style.display = 'none';
+      }
+    });
   }
-
-  /* 事件绑定：即时存储 */
-  panel.querySelectorAll('[data-key]').forEach(el => {
-    if (el.tagName === 'SELECT') {
-      el.onchange = e => {
-        const value = e.target.value;
-        options.preferQuality = value;
-        GM_setValue(el.dataset.key, value);
-      };
-    } else {
-      el.onclick = () => {
-        const newStatus = el.dataset.status === 'on' ? 'off' : 'on';
-        el.dataset.status = newStatus;
-        const isOn = newStatus === 'on';
-        const key = el.dataset.key;
-
-        if (key === 'isWaitUntilHighQualityLoaded') {
-          options.isWaitUntilHighQualityLoaded = isOn;
-        } else if (key === 'enableCommentUnlock') {
-          options.enableCommentUnlock = isOn;
-        } else if (key === 'enableReplyPagination') {
-          options.enableReplyPagination = isOn;
-        } else if (key === 'enableLiveAreaUnlock') {
-          options.enableLiveAreaUnlock = isOn;
-        } else if (key === 'enableProtocolUnlock') {
-          options.enableProtocolUnlock = isOn;
-        }
-        
-        GM_setValue(key, isOn);
-      };
-    }
-  });
-  
-  // 支持 ESC 键关闭面板
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panel.style.display === 'flex') {
-      panel.style.display = 'none';
-    }
-  });
-  
-  // 点击背景关闭面板
-  panel.addEventListener('click', (e) => {
-    if (e.target === panel) {
-      panel.style.display = 'none';
-    }
-  });
 })();
