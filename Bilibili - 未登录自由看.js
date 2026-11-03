@@ -2356,6 +2356,31 @@
       position: relative !important; z-index: 100002 !important;
       pointer-events: auto !important; visibility: visible !important; opacity: 1 !important;
     }
+    /* 网页全屏时播放器 z-index 为 100000，顶栏需让出层级，否则会盖住播放器（#31）；:has 单独成组，避免不支持时整组失效 */
+    body.webscreen-fix .bili-header,
+    body.webscreen-fix #bili-header-container,
+    body.webscreen-fix .bili-header__bar,
+    body.webscreen-fix #biliMainHeader,
+    body.webscreen-fix .fixed-header,
+    body.webscreen-fix .bili-header .center-search-container,
+    body.webscreen-fix .bili-header .nav-search,
+    body.webscreen-fix .bili-header .nav-search-input,
+    body.webscreen-fix .bili-header .search-panel,
+    body.webscreen-fix .bili-header .search-panel-popover {
+      z-index: auto !important;
+    }
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header,
+    body:has(.bpx-player-container[data-screen="web"]) #bili-header-container,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header__bar,
+    body:has(.bpx-player-container[data-screen="web"]) #biliMainHeader,
+    body:has(.bpx-player-container[data-screen="web"]) .fixed-header,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header .center-search-container,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header .nav-search,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header .nav-search-input,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header .search-panel,
+    body:has(.bpx-player-container[data-screen="web"]) .bili-header .search-panel-popover {
+      z-index: auto !important;
+    }
     .bili-mini-mask, .bili-mini-login-mask, .mini-login-mask, .bili-login-v2-mask,
     .login-panel-mask, [class*="login-mask"], [class*="mini-login-mask"],
     body > .bili-mini-login, body > .mini-login, body > .bili-login-v2-container,
