@@ -1,19 +1,19 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      4.0.0-alpha.26
+// @version      4.0.0-alpha.27
 // @description  B站未登录观看增强：高清画质、只读评论、倍速、前进后退、防自动暂停和直播分区连续加载。
 // @license      GPL-3.0
 // @author       zhikanyeye
-// @match        https://www.bilibili.com/video/*
-// @match        https://www.bilibili.com/list/*
-// @match        https://www.bilibili.com/festival/*
-// @match        https://www.bilibili.com/opus/*
-// @match        https://www.bilibili.com/read/cv*
+// @match        https://www.bilibili.com/zh-Hans/video/*
+// @match        https://www.bilibili.com/zh-Hans/list/*
+// @match        https://www.bilibili.com/zh-Hans/festival/*
+// @match        https://www.bilibili.com/zh-Hans/opus/*
+// @match        https://www.bilibili.com/zh-Hans/read/cv*
 // @match        https://t.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://live.bilibili.com/*
-// @icon         https://www.bilibili.com/favicon.ico
+// @icon         https://www.bilibili.com/zh-Hans/favicon.ico
 // @require      https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js
 // @grant        unsafeWindow
 // @grant        GM_getValue
@@ -63,7 +63,7 @@
   installSettingsPanel();
 
   const PAGE_RE = {
-    video: /^https:\/\/www\.bilibili\.com\/video\//,
+    video: /^https:\/\/www\.bilibili\.com\/zh-Hans\/video\//,
     dynamic: /^https:\/\/t\.bilibili\.com\/\d+/,
     opus: /^https:\/\/www\.bilibili\.com\/opus\/\d+/,
     space: /^https:\/\/space\.bilibili\.com\/\d+/,
@@ -869,7 +869,7 @@
         node.closest?.('a[href*="/opus/"], a[href*="t.bilibili.com/"]');
       if (linkEl?.href) return linkEl.href;
       const did = root?.dataset?.did || root?.dataset?.dynamicId;
-      return did ? `https://www.bilibili.com/opus/${did}` : '';
+      return did ? `https://www.bilibili.com/zh-Hans/opus/${did}` : '';
     };
 
     const bind = () => {
