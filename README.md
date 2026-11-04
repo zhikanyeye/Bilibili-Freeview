@@ -2,21 +2,21 @@
 
 # Bilibili - 未登录自由看
 
-**未登录高画质、只读评论与播放器增强，一份脚本集中解决。**
+**高画质、完整只读评论与播放器增强，一份脚本集中解决。**
 
-[![Version](https://img.shields.io/badge/version-4.0.0--alpha.26-f59e0b?style=for-the-badge)](#更新日志)
+[![Version](https://img.shields.io/badge/version-5.0.0--alpha.2-f59e0b?style=for-the-badge)](#更新日志)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装-f97316?style=for-the-badge)](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B)
-[![jsDelivr](https://img.shields.io/badge/jsDelivr-alpha.26-0284c7?style=for-the-badge)](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@46d8dc695c8d1bd8b60aea6b3cf0d9e6859867a8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js)
+[![jsDelivr](https://img.shields.io/badge/jsDelivr-%E5%8E%86%E5%8F%B2alpha.2-f59e0b?style=for-the-badge)](#更新日志)
 
-在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
+在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、长按临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
 
 [安装脚本](#安装) · [快速使用](#快速使用) · [设置说明](#设置说明) · [支持页面](#页面与登录状态) · [更新日志](#更新日志) · [问题反馈](#反馈与支持)
 
 </div>
 
 > [!TIP]
-> 当前版本为 `4.0.0-alpha.26`。普通用户可使用 Greasy Fork，测试最新 alpha 功能可使用固定提交的 jsDelivr 地址。
+> 当前源码版本为 `5.0.0-alpha.2`。5.0 alpha 尚未发布到 Greasy Fork 或 jsDelivr；下表中的安装链接目前仍指向旧版。安装 5.0 请在用户脚本管理器中导入本仓库的脚本文件。
 
 ## 主要功能
 
@@ -24,7 +24,7 @@
 |---|---|---|
 | **画质解锁** | 1080P / 720P / 480P / 360P | SPA 切视频、分 P 和画质掉档时自动恢复首选画质 |
 | **播放器增强** | 预设倍速、自定义倍速、前进后退、临时加速 | 登录与未登录均可使用，设置自动保存 |
-| **只读评论** | 最热/最新、无限滚动、分页、页码跳转、子回复 | 覆盖视频、合集、活动、动态详情、Opus 和专栏 |
+| **只读评论** | 最热/最新、无限滚动、分页、页码跳转、子回复、图片和投票卡片 | 覆盖视频、合集、活动、动态详情、Opus 和专栏 |
 | **观看防打扰** | 登录遮罩处理、自动暂停防护、静音意图保护 | 保留用户主动暂停和站内初始播放状态 |
 | **直播分区兜底** | 原接口检测、备用接口转换、保守翻页 | 分区列表异常或疑似裁剪时继续加载 |
 
@@ -35,7 +35,7 @@
 | 渠道 | 安装地址 | 说明 |
 |---|---|---|
 | Greasy Fork | [安装稳定发布版](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B) | 使用平台更新机制 |
-| jsDelivr | [安装 v4.0.0-alpha.26](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@46d8dc695c8d1bd8b60aea6b3cf0d9e6859867a8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js) | 固定到版本提交 `46d8dc6` |
+| jsDelivr | [安装历史版 v4.0.0-alpha.26](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@46d8dc695c8d1bd8b60aea6b3cf0d9e6859867a8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js) | 固定到旧版本提交 `46d8dc6`，不包含 5.0 改动 |
 | GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Free-Quality) | 查看代码、提交记录与 Issues |
 
 安装后打开支持的 B 站页面即可运行。画质、评论、直播和防登录功能建议在未登录窗口中测试。
@@ -74,7 +74,7 @@
 
 ### 浏览评论
 
-- 评论功能默认开启，进入支持的详情页后自动替换为脚本的只读评论列表。
+- 评论功能默认开启，进入支持的详情页后自动替换为脚本的只读评论列表。评论区图片可点击查看原图；投票卡片使用评论 API 返回的标题和跳转链接，评论数据若带有选项也会一并显示。
 - 顶部可切换 **最热** 和 **最新** 排序。
 - 默认使用无限滚动；开启分页模式并刷新后，可使用上一页、下一页、页码输入和 Enter 跳转。
 - 主评论每批加载 20 条，子回复每批加载 10 条；点击回复数量可展开全部子回复。
@@ -138,6 +138,7 @@
 - **协议级解锁**：默认注入会话级 `DedeUserID`，清理低画质 SSR 数据，对 `playurl` 请求按首选画质进行 WBI 重签，并从可播放响应中选择完整媒体流。
 - **客户端兼容**：关闭协议级解锁并刷新后，使用自动点击高清试用、延长试看计时和画质掉档恢复作为备用路径。
 - **评论读取**：直接调用 B 站评论 API 并完成 WBI 签名，在安全的评论容器内渲染只读列表。
+- **富文本显示**：根据 `rich_text_nodes` 渲染评论图片和表情；投票使用评论数据提供的标题与跳转地址。若接口未返回投票选项，脚本提供官方页面入口。
 - **播放器控制**：通过媒体倍速 setter、`ratechange`、播放器重挂载和定时校验保持用户设置。
 - **直播兜底**：检测直播分区原接口结果，异常时转换备用接口数据为播放器所需结构。
 
@@ -153,7 +154,7 @@
 - B 站播放器 DOM 或 API 调整后，控制按钮、评论容器或接口拦截可能需要同步适配。
 - 协议请求未获得完整媒体流时会回退页面原请求，实际可用画质仍受视频源、地区和 B 站接口响应影响。
 - 防自动暂停会识别点击、触摸、Space 和 K 键等常见用户操作，并只在视频已经播放后处理意外暂停。
-- 评论接口、WBI key 或安全容器获取失败时，脚本会跳过评论重绘并在控制台记录原因。
+- 评论接口、WBI key 或安全容器获取失败时，脚本会跳过评论重绘并在控制台记录原因。图片地址会经过可信域名校验；投票选项只有在评论接口返回时才会直接显示，其他情况可点标题跳转 B 站查看。
 - 直播兜底专门处理直播分区列表接口，范围聚焦分区列表连续加载。
 - 倍速与跳转控件依赖 B 站当前播放器结构；直播流的跳转效果取决于播放器是否提供 DVR 时间轴。
 
@@ -166,6 +167,14 @@
 ## 更新日志
 
 以下内容记录各版本当时的行为。当前功能、入口和限制以前文说明为准。
+
+### v5.0.0-alpha.2 (2026-11-03)
+- 修复动态/Opus 评论目标解析，优先读取页面状态，再使用详情接口返回的评论 ID/类型。
+- 补全评论图片、投票卡片和点赞图标；支持表情、跳转链接和 rich text 节点回退。
+- 评论区取消固定文字和底色，跟随站点/深色模式工具的前景色与背景色。
+- 修复长按临时倍速期间站点速率写入覆盖临时倍率的问题。
+- 支持带与不带 `/zh-Hans/` 的视频、列表、活动、Opus 和专栏 URL。
+- 按开源 API 示例补充 `rich_text_nodes` 图片 `pics[].src` 和表情 `emoji.icon_url` 解析；原图地址去除 B 站缩略图尺寸后缀。
 
 ### v4.0.0-alpha.26 (2026-08-09)
 - **Violentmonkey 菜单兼容**：画质设置菜单在业务模块前注册，避免页面初始化和登录分支影响菜单显示
@@ -203,6 +212,9 @@
 - [Bilibili - 在未登录的情况下照常加载评论](https://greasyfork.org/zh-CN/scripts/473498)
 - [小电视空降助手 BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock)（播放器生命周期与原生控制栏挂载设计）
 - [beefreely](https://github.com/vruses/beefreely) by **vruses**（未登录高清视频、完整评论区与字幕等功能的开源实现）
+- [bilibili-api-collect-mirror](https://github.com/alittlehuaji/bilibili-api-collect-mirror/blob/master/docs/opus/rich_text_nodes.md)（Opus 富文本图片、表情和投票节点字段参考）
+- [EchoWatch-public](https://github.com/X-tong2568/EchoWatch-public/blob/main/bili-api-guide.md)（评论富文本与投票标题/跳转字段参考）
+- [bili-note API notes](https://github.com/Rimagination/bili-note/blob/main/references/bilibili-api-notes.md)（动态详情与评论目标字段参考）
 
 ## 反馈与支持
 
