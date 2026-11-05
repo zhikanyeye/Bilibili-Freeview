@@ -7,7 +7,7 @@
 [![Version](https://img.shields.io/badge/version-5.0.0--alpha.2-f59e0b?style=for-the-badge)](#更新日志)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装-f97316?style=for-the-badge)](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B)
-[![jsDelivr](https://img.shields.io/badge/jsDelivr-%E5%8E%86%E5%8F%B2alpha.2-f59e0b?style=for-the-badge)](#更新日志)
+[![jsDelivr](https://img.shields.io/badge/jsDelivr-v5.0.0--alpha.2-f59e0b?style=for-the-badge)](#安装)
 
 在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、长按临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
 
@@ -16,7 +16,7 @@
 </div>
 
 > [!TIP]
-> 当前源码版本为 `5.0.0-alpha.2`。5.0 alpha 尚未发布到 Greasy Fork 或 jsDelivr；下表中的安装链接目前仍指向旧版。安装 5.0 请在用户脚本管理器中导入本仓库的脚本文件。
+> 当前源码版本为 `5.0.0-alpha.2`。5.0 alpha 已发布到 jsDelivr；Greasy Fork 仍提供稳定发布版。
 
 ## 主要功能
 
@@ -35,13 +35,13 @@
 | 渠道 | 安装地址 | 说明 |
 |---|---|---|
 | Greasy Fork | [安装稳定发布版](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B) | 使用平台更新机制 |
-| jsDelivr | [安装历史版 v4.0.0-alpha.26](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Free-Quality@46d8dc695c8d1bd8b60aea6b3cf0d9e6859867a8/Bilibili%20-%20%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B.js) | 固定到旧版本提交 `46d8dc6`，不包含 5.0 改动 |
-| GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Free-Quality) | 查看代码、提交记录与 Issues |
+| jsDelivr | [安装 v5.0.0-alpha.2](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Freeview@v5.0.0-alpha.2/bilibili-freeview.js) | 固定到版本标签 `v5.0.0-alpha.2` |
+| GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Freeview) | 查看代码、提交记录与 Issues |
 
 安装后打开支持的 B 站页面即可运行。画质、评论、直播和防登录功能建议在未登录窗口中测试。
 
 > [!IMPORTANT]
-> jsDelivr 地址固定到版本提交 `46d8dc6`，可避免分支后续变化影响当前安装内容。
+> jsDelivr 地址固定到版本标签 `v5.0.0-alpha.2`，可避免分支后续变化影响当前安装内容。
 
 ## 快速使用
 
