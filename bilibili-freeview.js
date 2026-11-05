@@ -1,31 +1,49 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      5.0.0-alpha.2
+// @version      5.0.0-alpha.3
 // @description  B站观看增强：高清画质、完整只读评论、倍速、前进后退、防自动暂停和直播分区连续加载。
 // @license      GPL-3.0
 // @author       zhikanyeye
-// @match        https://www.bilibili.com/zh-Hans/video/*
+// @match        https://www.bilibili.com/
+// @match        https://www.bilibili.com/zh-Hans
+// @match        https://www.bilibili.com/zh-Hans/
+// @match        https://bilibili.com/
+// @match        https://bilibili.com/zh-Hans
+// @match        https://bilibili.com/zh-Hans/
 // @match        https://www.bilibili.com/video/*
-// @match        https://www.bilibili.com/zh-Hans/list/*
+// @match        https://www.bilibili.com/zh-Hans/video/*
+// @match        https://bilibili.com/video/*
+// @match        https://bilibili.com/zh-Hans/video/*
+// @match        https://www.bilibili.com/bangumi/play/*
+// @match        https://www.bilibili.com/zh-Hans/bangumi/play/*
+// @match        https://bilibili.com/bangumi/play/*
+// @match        https://bilibili.com/zh-Hans/bangumi/play/*
 // @match        https://www.bilibili.com/list/*
-// @match        https://www.bilibili.com/zh-Hans/festival/*
-// @match        https://www.bilibili.com/festival/*
-// @match        https://www.bilibili.com/zh-Hans/opus/*
+// @match        https://www.bilibili.com/zh-Hans/list/*
+// @match        https://bilibili.com/list/*
+// @match        https://bilibili.com/zh-Hans/list/*
+// @match        https://www.bilibili.com/festival*
+// @match        https://www.bilibili.com/zh-Hans/festival*
+// @match        https://bilibili.com/festival*
+// @match        https://bilibili.com/zh-Hans/festival*
 // @match        https://www.bilibili.com/opus/*
-// @match        https://www.bilibili.com/zh-Hans/read/cv*
+// @match        https://www.bilibili.com/zh-Hans/opus/*
 // @match        https://www.bilibili.com/read/cv*
+// @match        https://www.bilibili.com/zh-Hans/read/cv*
+// @match        https://bilibili.com/read/cv*
+// @match        https://bilibili.com/zh-Hans/read/cv*
 // @match        https://t.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://live.bilibili.com/*
 // @icon         https://www.bilibili.com/zh-Hans/favicon.ico
-// @require      https://cdnjs.cloudflare.com/ajax/libs/spark-md5/3.0.2/spark-md5.min.js
 // @grant        unsafeWindow
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
+// @noframes
 // ==/UserScript==
 
 (async function () {
@@ -68,18 +86,20 @@
   installSettingsPanel();
 
   const PAGE_RE = {
-    video: /^https:\/\/www\.bilibili\.com\/(?:zh-Hans\/)?video\//,
+    video: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?video\//,
+    bangumi: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?bangumi\/play\//,
     dynamic: /^https:\/\/t\.bilibili\.com\/\d+/,
-    opus: /^https:\/\/www\.bilibili\.com\/(?:zh-Hans\/)?opus\/\d+/,
+    opus: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?opus\/\d+/,
     space: /^https:\/\/space\.bilibili\.com\/\d+/,
-    article: /^https:\/\/www\.bilibili\.com\/(?:zh-Hans\/)?read\/cv\d+/,
-    festival: /^https:\/\/www\.bilibili\.com\/(?:zh-Hans\/)?festival\//,
-    list: /^https:\/\/www\.bilibili\.com\/(?:zh-Hans\/)?list\//,
+    article: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?read\/cv\d+/,
+    festival: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?festival(?:\/|\?|$)/,
+    list: /^https:\/\/(?:www\.)?bilibili\.com\/(?:zh-Hans\/)?list\//,
     live: /^https:\/\/live\.bilibili\.com\//
   };
 
   function isPlaybackPage() {
     return PAGE_RE.video.test(location.href)
+      || PAGE_RE.bangumi.test(location.href)
       || PAGE_RE.festival.test(location.href)
       || PAGE_RE.list.test(location.href);
   }
@@ -774,8 +794,98 @@
       const value = p[key].toString().replace(/[!'()*]/g, '');
       return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
     }).join('&');
-    const wbiSign = SparkMD5.hash(query + mixinKey);
+    const wbiSign = md5(query + mixinKey);
     return query + '&w_rid=' + wbiSign;
+  }
+
+  // 内置 MD5，避免依赖外部 @require 在网络受限或被拦截时导致整个脚本不执行。
+  function md5(input) {
+    const bytes = new TextEncoder().encode(String(input));
+    const wordCount = (((bytes.length + 8) >> 6) + 1) * 16;
+    const words = new Uint32Array(wordCount);
+    for (let i = 0; i < bytes.length; i++) words[i >> 2] |= bytes[i] << ((i & 3) * 8);
+    words[bytes.length >> 2] |= 0x80 << ((bytes.length & 3) * 8);
+    words[wordCount - 2] = (bytes.length * 8) >>> 0;
+    words[wordCount - 1] = Math.floor(bytes.length / 0x20000000) >>> 0;
+
+    let a = 0x67452301; let b = 0xefcdab89; let c = 0x98badcfe; let d = 0x10325476;
+    const rol = (x, n) => (x << n) | (x >>> (32 - n));
+    const add = (x, y) => (x + y) >>> 0;
+    const ff = (x, y, z) => (x & y) | (~x & z);
+    const gg = (x, y, z) => (x & z) | (y & ~z);
+    const hh = (x, y, z) => x ^ y ^ z;
+    const ii = (x, y, z) => y ^ (x | ~z);
+    const step = (fn, aa, bb, cc, dd, x, s, t) => add(rol(add(add(aa, fn(bb, cc, dd)), add(x, t)), s), bb);
+
+    for (let offset = 0; offset < wordCount; offset += 16) {
+      const oa = a; const ob = b; const oc = c; const od = d;
+      a = step(ff, a, b, c, d, words[offset], 7, 0xd76aa478);
+      d = step(ff, d, a, b, c, words[offset + 1], 12, 0xe8c7b756);
+      c = step(ff, c, d, a, b, words[offset + 2], 17, 0x242070db);
+      b = step(ff, b, c, d, a, words[offset + 3], 22, 0xc1bdceee);
+      a = step(ff, a, b, c, d, words[offset + 4], 7, 0xf57c0faf);
+      d = step(ff, d, a, b, c, words[offset + 5], 12, 0x4787c62a);
+      c = step(ff, c, d, a, b, words[offset + 6], 17, 0xa8304613);
+      b = step(ff, b, c, d, a, words[offset + 7], 22, 0xfd469501);
+      a = step(ff, a, b, c, d, words[offset + 8], 7, 0x698098d8);
+      d = step(ff, d, a, b, c, words[offset + 9], 12, 0x8b44f7af);
+      c = step(ff, c, d, a, b, words[offset + 10], 17, 0xffff5bb1);
+      b = step(ff, b, c, d, a, words[offset + 11], 22, 0x895cd7be);
+      a = step(ff, a, b, c, d, words[offset + 12], 7, 0x6b901122);
+      d = step(ff, d, a, b, c, words[offset + 13], 12, 0xfd987193);
+      c = step(ff, c, d, a, b, words[offset + 14], 17, 0xa679438e);
+      b = step(ff, b, c, d, a, words[offset + 15], 22, 0x49b40821);
+      a = step(gg, a, b, c, d, words[offset + 1], 5, 0xf61e2562);
+      d = step(gg, d, a, b, c, words[offset + 6], 9, 0xc040b340);
+      c = step(gg, c, d, a, b, words[offset + 11], 14, 0x265e5a51);
+      b = step(gg, b, c, d, a, words[offset], 20, 0xe9b6c7aa);
+      a = step(gg, a, b, c, d, words[offset + 5], 5, 0xd62f105d);
+      d = step(gg, d, a, b, c, words[offset + 10], 9, 0x02441453);
+      c = step(gg, c, d, a, b, words[offset + 15], 14, 0xd8a1e681);
+      b = step(gg, b, c, d, a, words[offset + 4], 20, 0xe7d3fbc8);
+      a = step(gg, a, b, c, d, words[offset + 9], 5, 0x21e1cde6);
+      d = step(gg, d, a, b, c, words[offset + 14], 9, 0xc33707d6);
+      c = step(gg, c, d, a, b, words[offset + 3], 14, 0xf4d50d87);
+      b = step(gg, b, c, d, a, words[offset + 8], 20, 0x455a14ed);
+      a = step(gg, a, b, c, d, words[offset + 13], 5, 0xa9e3e905);
+      d = step(gg, d, a, b, c, words[offset + 2], 9, 0xfcefa3f8);
+      c = step(gg, c, d, a, b, words[offset + 7], 14, 0x676f02d9);
+      b = step(gg, b, c, d, a, words[offset + 12], 20, 0x8d2a4c8a);
+      a = step(hh, a, b, c, d, words[offset + 5], 4, 0xfffa3942);
+      d = step(hh, d, a, b, c, words[offset + 8], 11, 0x8771f681);
+      c = step(hh, c, d, a, b, words[offset + 11], 16, 0x6d9d6122);
+      b = step(hh, b, c, d, a, words[offset + 14], 23, 0xfde5380c);
+      a = step(hh, a, b, c, d, words[offset + 1], 4, 0xa4beea44);
+      d = step(hh, d, a, b, c, words[offset + 4], 11, 0x4bdecfa9);
+      c = step(hh, c, d, a, b, words[offset + 7], 16, 0xf6bb4b60);
+      b = step(hh, b, c, d, a, words[offset + 10], 23, 0xbebfbc70);
+      a = step(hh, a, b, c, d, words[offset + 13], 4, 0x289b7ec6);
+      d = step(hh, d, a, b, c, words[offset], 11, 0xeaa127fa);
+      c = step(hh, c, d, a, b, words[offset + 3], 16, 0xd4ef3085);
+      b = step(hh, b, c, d, a, words[offset + 6], 23, 0x04881d05);
+      a = step(hh, a, b, c, d, words[offset + 9], 4, 0xd9d4d039);
+      d = step(hh, d, a, b, c, words[offset + 12], 11, 0xe6db99e5);
+      c = step(hh, c, d, a, b, words[offset + 15], 16, 0x1fa27cf8);
+      b = step(hh, b, c, d, a, words[offset + 2], 23, 0xc4ac5665);
+      a = step(ii, a, b, c, d, words[offset], 6, 0xf4292244);
+      d = step(ii, d, a, b, c, words[offset + 7], 10, 0x432aff97);
+      c = step(ii, c, d, a, b, words[offset + 14], 15, 0xab9423a7);
+      b = step(ii, b, c, d, a, words[offset + 5], 21, 0xfc93a039);
+      a = step(ii, a, b, c, d, words[offset + 12], 6, 0x655b59c3);
+      d = step(ii, d, a, b, c, words[offset + 3], 10, 0x8f0ccc92);
+      c = step(ii, c, d, a, b, words[offset + 10], 15, 0xffeff47d);
+      b = step(ii, b, c, d, a, words[offset + 1], 21, 0x85845dd1);
+      a = step(ii, a, b, c, d, words[offset + 8], 6, 0x6fa87e4f);
+      d = step(ii, d, a, b, c, words[offset + 15], 10, 0xfe2ce6e0);
+      c = step(ii, c, d, a, b, words[offset + 6], 15, 0xa3014314);
+      b = step(ii, b, c, d, a, words[offset + 13], 21, 0x4e0811a1);
+      a = step(ii, a, b, c, d, words[offset + 4], 6, 0xf7537e82);
+      d = step(ii, d, a, b, c, words[offset + 11], 10, 0xbd3af235);
+      c = step(ii, c, d, a, b, words[offset + 2], 15, 0x2ad7d2bb);
+      b = step(ii, b, c, d, a, words[offset + 9], 21, 0xeb86d391);
+      a = add(a, oa); b = add(b, ob); c = add(c, oc); d = add(d, od);
+    }
+    return [a, b, c, d].map(value => Array.from({ length: 4 }, (_, i) => ((value >>> (i * 8)) & 255).toString(16).padStart(2, '0')).join('')).join('');
   }
 
   function b2a(bvid) {
