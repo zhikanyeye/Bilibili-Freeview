@@ -4,10 +4,10 @@
 
 **高画质、完整只读评论与播放器增强，一份脚本集中解决。**
 
-[![Version](https://img.shields.io/badge/version-5.0.0--alpha.3-f59e0b?style=for-the-badge)](#更新日志)
+[![Version](https://img.shields.io/badge/version-5.0.0--alpha.4-f59e0b?style=for-the-badge)](#更新日志)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装-f97316?style=for-the-badge)](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B)
-[![jsDelivr](https://img.shields.io/badge/jsDelivr-v5.0.0--alpha.2-f59e0b?style=for-the-badge)](#安装)
+[![jsDelivr](https://img.shields.io/badge/jsDelivr-v5.0.0--alpha.4-f59e0b?style=for-the-badge)](#安装)
 
 在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、长按临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
 
@@ -16,7 +16,7 @@
 </div>
 
 > [!TIP]
-> 当前源码版本为 `5.0.0-alpha.3`。5.0 alpha 已发布到 jsDelivr；Greasy Fork 仍提供稳定发布版。
+> 当前源码版本为 `5.0.0-alpha.4`。5.0 alpha 已发布到 jsDelivr；Greasy Fork 的版本以其页面显示为准。
 
 ## 主要功能
 
@@ -35,13 +35,13 @@
 | 渠道 | 安装地址 | 说明 |
 |---|---|---|
 | Greasy Fork | [安装稳定发布版](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B) | 使用平台更新机制 |
-| jsDelivr | [安装 v5.0.0-alpha.3](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Freeview@v5.0.0-alpha.3/bilibili-freeview.js) | 固定到版本标签 `v5.0.0-alpha.3` |
+| jsDelivr | [安装 v5.0.0-alpha.4](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Freeview@v5.0.0-alpha.4/bilibili-freeview.js) | 固定到版本标签 `v5.0.0-alpha.4` |
 | GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Freeview) | 查看代码、提交记录与 Issues |
 
 安装后打开支持的 B 站页面即可运行。画质、评论、直播和防登录功能建议在未登录窗口中测试。
 
 > [!IMPORTANT]
-> jsDelivr 地址固定到版本标签 `v5.0.0-alpha.3`，可避免分支后续变化影响当前安装内容。
+> jsDelivr 地址固定到版本标签 `v5.0.0-alpha.4`，可避免分支后续变化影响当前安装内容。
 
 ## 快速使用
 
@@ -167,6 +167,11 @@
 ## 更新日志
 
 以下内容记录各版本当时的行为。当前功能、入口和限制以前文说明为准。
+
+### v5.0.0-alpha.4 (2026-11-05)
+- 提前注册用户脚本设置菜单，并在样式注入失败时继续初始化。
+- 改进无限试用模式的页面环境钩子、试用按钮检测和播放器画质列表兼容。
+- 保留协议截流和无限试用两种模式；切换后需要刷新页面。
 
 ### v5.0.0-alpha.3 (2026-11-05)
 - 移除外部 `spark-md5` 依赖，内置 WBI 所需的 MD5，避免依赖加载失败导致脚本和设置面板完全不执行。

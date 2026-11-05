@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      5.0.0-alpha.3
+// @version      5.0.0-alpha.4
 // @description  B站观看增强：高清画质、完整只读评论、倍速、前进后退、防自动暂停和直播分区连续加载。
 // @license      GPL-3.0
 // @author       zhikanyeye
@@ -135,6 +135,24 @@
   // 延迟函数
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function addStyle(css) {
+    try {
+      const style = GM_addStyle(css);
+      if (style) return;
+    } catch (error) {
+      console.warn('[Bilibili脚本] 注入样式失败，等待页面就绪后重试:', error);
+    }
+    const mount = () => {
+      const root = document.head || document.documentElement;
+      if (!root) return;
+      const style = document.createElement('style');
+      style.textContent = css;
+      root.appendChild(style);
+    };
+    if (document.head || document.documentElement) mount();
+    else document.addEventListener('DOMContentLoaded', mount, { once: true });
   }
 
   function isBilibiliLoggedIn() {
@@ -338,7 +356,7 @@
       }
 
       if (typeof player.requestQuality === 'function') {
-        const supported = player.getSupportedQualityList?.();
+        const supported = getSupportedQualityValues(player);
         let qn = target;
         if (Array.isArray(supported) && supported.length) {
           if (supported.includes(target)) qn = target;
@@ -368,6 +386,21 @@
     } catch (e) {
       return false;
     }
+  }
+
+  function getSupportedQualityValues(player) {
+    const supported = player?.getSupportedQualityList?.();
+    if (!Array.isArray(supported)) return [];
+    return supported.map(item => Number(item && typeof item === 'object'
+      ? (item.quality ?? item.qn ?? item.value) : item)).filter(Number.isFinite);
+  }
+
+  function getCurrentPlayerQuality(player) {
+    const current = player?.getCurrentQuality?.() ?? player?.getQuality?.();
+    const value = current && typeof current === 'object'
+      ? (current.nowQ ?? current.quality ?? current.qn) : current;
+    const quality = Number(value);
+    return value == null || !Number.isFinite(quality) ? null : quality;
   }
 
   function scheduleForceQuality(times = 12, gap = 500) {
@@ -651,8 +684,8 @@
         try {
           const target = getTargetQn();
           const player = unsafeWindow.player;
-          const cur = player?.getCurrentQuality?.();
-          const supported = player?.getSupportedQualityList?.();
+          const cur = getCurrentPlayerQuality(player);
+          const supported = getSupportedQualityValues(player);
           if (cur == null) return;
 
           // 菜单已有 1080 但当前仍是 360：说明流未真正切档
@@ -672,23 +705,29 @@
     };
 
     const observeTrialButton = () => {
-      const observer = new MutationObserver(() => {
+      const checkTrialButton = () => {
         const btn = document.querySelector('.bpx-player-toast-confirm-login');
         if (!btn || btn.dataset.bfqClicked) return;
         btn.dataset.bfqClicked = '1';
         setTimeout(() => {
+          if (!btn.isConnected) return;
           try { btn.click(); } catch (e) {}
           scheduleForceQuality(10, 600);
           startDropWatcher();
           setTimeout(() => delete btn.dataset.bfqClicked, 2000);
         }, CONFIG.BUTTON_CLICK_DELAY);
-      });
+      };
+      const observer = new MutationObserver(checkTrialButton);
       const root = document.body || document.documentElement;
       if (root) observer.observe(root, { childList: true, subtree: true });
+      checkTrialButton();
+      setInterval(checkTrialButton, 1500);
     };
 
-    if (document.body) observeTrialButton();
-    else document.addEventListener('DOMContentLoaded', observeTrialButton, { once: true });
+    if (options.enableProtocolUnlock) {
+      if (document.body) observeTrialButton();
+      else document.addEventListener('DOMContentLoaded', observeTrialButton, { once: true });
+    }
 
     // 播放器就绪后立即拔高 + 掉落监听
     const waitPlayer = setInterval(() => {
@@ -2398,7 +2437,7 @@
     commentCurrentPage = 0;
     commentTotalCount = 0;
 
-    GM_addStyle(`
+    addStyle(`
 #bili-custom-comments,.comment-container#bili-custom-comments{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;font-size:14px;padding:16px 0;min-height:120px}
 .bili-comment-header{margin-bottom:8px}
 .bili-comment-title{font-size:18px;font-weight:700}
@@ -2638,7 +2677,7 @@
   ].join(',');
 
   /* 2-2 CSS：顶栏最高层级 + 更广登录层隐藏（仍避开顶栏内部） */
-  GM_addStyle(`
+  addStyle(`
     .bili-header, #bili-header-container, .bili-header__bar, #biliMainHeader, .fixed-header {
       position: relative !important; z-index: 100001 !important;
       pointer-events: auto !important; visibility: visible !important; opacity: 1 !important;
@@ -3000,59 +3039,51 @@
 
   /* ========== 客户端兜底（关闭协议级解锁时启用）========== */
   const installClientArchFallback = () => {
-    const originDef = Object.defineProperty;
-    let definePropertyCallCount = 0;
-    Object.defineProperty = function (obj, prop, desc) {
+    const patchTrialFlags = (objectCtor) => {
+      const originDef = objectCtor?.defineProperty;
+      if (typeof originDef !== 'function' || originDef.__bfqTrialFlagsPatched) return;
+      const patched = function (obj, prop, desc) {
       if (prop === 'isViewToday' || prop === 'isVideoAble') {
-        let isLikelyPlayerState = true;
-        try {
-          if (obj === globalThis || obj === unsafeWindow || obj === window) isLikelyPlayerState = false;
-          else if (obj instanceof Element) isLikelyPlayerState = false;
-          else if (desc && 'value' in desc && !('get' in desc) && !('set' in desc)) isLikelyPlayerState = false;
-          else if (desc && typeof desc.get === 'function') {
-            const getterText = String(desc.get);
-            if (!/play|trial|view|able|quality|qn/i.test(getterText)) {
-              isLikelyPlayerState = false;
-            }
-          }
-        } catch (e) { isLikelyPlayerState = false; }
-
-        definePropertyCallCount++;
-        if (isLikelyPlayerState) {
-          desc = { get: () => true, enumerable: false, configurable: true };
+        if (obj !== globalThis && obj !== unsafeWindow && obj !== window && !(obj instanceof Element)) {
+          desc = { get: () => true, enumerable: !!desc?.enumerable, configurable: true };
         }
       }
       return originDef.call(this, obj, prop, desc);
+      };
+      originDef(patched, '__bfqTrialFlagsPatched', { value: true });
+      objectCtor.defineProperty = patched;
     };
+    patchTrialFlags(Object);
+    if (unsafeWindow.Object && unsafeWindow.Object !== Object) patchTrialFlags(unsafeWindow.Object);
 
     /* 3-2 试用倒计时延长到 3 亿秒 */
     const originSetTimeout = unsafeWindow.setTimeout;
     const originSetInterval = unsafeWindow.setInterval;
     const shouldExtendTrialTimer = (fn, delayNum) => {
-      if (delayNum !== 30000 && delayNum !== 60000 && delayNum !== 62000 && delayNum !== 90000) return false;
+      if (!Number.isFinite(delayNum) || delayNum < 15000 || delayNum > 90000) return false;
       const fnText = typeof fn === 'function' ? String(fn) : String(fn || '');
       return (
         fnText.includes('试看') ||
-        fnText.includes('trial') ||
         fnText.includes('isViewToday') ||
         fnText.includes('isVideoAble') ||
-        fnText.includes('absolutePlayTime')
+        fnText.includes('absolutePlayTime') ||
+        (/login|passport|trial|quality|vip/i.test(fnText) && /pause|toast|confirm|timeout|countdown|screen/i.test(fnText))
       );
     };
 
-    unsafeWindow.setTimeout = (fn, delay) => {
+    unsafeWindow.setTimeout = (fn, delay, ...args) => {
       const delayNum = Number(delay);
       if (shouldExtendTrialTimer(fn, delayNum)) {
         delay = CONFIG.TRIAL_TIMEOUT;
       }
-      return originSetTimeout.call(unsafeWindow, fn, delay);
+      return originSetTimeout.call(unsafeWindow, fn, delay, ...args);
     };
-    unsafeWindow.setInterval = (fn, delay) => {
+    unsafeWindow.setInterval = (fn, delay, ...args) => {
       const delayNum = Number(delay);
       if (shouldExtendTrialTimer(fn, delayNum)) {
         delay = CONFIG.TRIAL_TIMEOUT;
       }
-      return originSetInterval.call(unsafeWindow, fn, delay);
+      return originSetInterval.call(unsafeWindow, fn, delay, ...args);
     };
 
     /* 3-3 点击试用按钮 + 画质切换 + 兜底拔高 */
@@ -3065,7 +3096,9 @@
     const requestTargetQuality = (reason = 'manual') => {
       const target = TARGET_QUALITY();
       try {
-        if (unsafeWindow.player?.getSupportedQualityList?.()?.includes(target)) {
+        const player = unsafeWindow.player;
+        const supported = getSupportedQualityValues(player);
+        if (typeof player?.requestQuality === 'function' && (!supported.length || supported.includes(target))) {
           Promise.resolve(unsafeWindow.player.requestQuality(target)).catch((err) => {
             if (!String(err?.message || err).includes('Same as current quality')) {
               console.warn('[Bilibili脚本] 画质切换失败:', err, '来源:', reason);
@@ -3097,8 +3130,8 @@
 
       originSetInterval.call(unsafeWindow, () => {
         try {
-          const cur = unsafeWindow.player?.getCurrentQuality?.();
-          const supported = unsafeWindow.player?.getSupportedQualityList?.();
+          const cur = getCurrentPlayerQuality(unsafeWindow.player);
+          const supported = getSupportedQualityValues(unsafeWindow.player);
           const target = TARGET_QUALITY();
           if (cur != null && supported?.includes(target) && cur !== target) {
             requestTargetQuality('drop-watch');
@@ -3123,13 +3156,14 @@
 
     // 使用 MutationObserver 而不是 setInterval 来监听按钮出现，性能更好
     const observeTrialButton = () => {
-      const observer = new MutationObserver(() => {
+      const checkTrialButton = () => {
         const btn = document.querySelector('.bpx-player-toast-confirm-login');
         if (!btn) return;
         if (btn.dataset.clicked) return;
         btn.dataset.clicked = 'true';
 
         setTimeout(() => {
+          if (!btn.isConnected) return;
           btn.click();
           scheduleReUnlockAfterTrial();
           startQualityDropWatcher();
@@ -3162,9 +3196,12 @@
           setTimeout(() => requestTargetQuality('trial-button'), CONFIG.QUALITY_SWITCH_DELAY);
           setTimeout(() => delete btn.dataset.clicked, 2000);
         }, CONFIG.BUTTON_CLICK_DELAY);
-      });
+      };
 
+      const observer = new MutationObserver(checkTrialButton);
       observer.observe(document.body, { childList: true, subtree: true });
+      checkTrialButton();
+      originSetInterval.call(unsafeWindow, checkTrialButton, 1500);
     };
 
     if (document.body) observeTrialButton();
@@ -3256,7 +3293,7 @@
     }, true);
 
     /* ===== 倍速按钮（播放器原生右侧控制栏） ===== */
-    GM_addStyle(`
+    addStyle(`
 #bfq-speed-control{position:relative;display:flex;align-items:center;align-self:stretch;height:100%;flex:0 0 auto}
 #bfq-speed-btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 8px;height:100%;min-width:48px;color:#fff;cursor:pointer;font-size:13px;user-select:none;white-space:nowrap;opacity:.9;transition:opacity .2s}
 #bfq-speed-btn:hover{opacity:1}
@@ -3698,7 +3735,18 @@
 
   /* ========== 4. 设置面板 ========== */
   function installSettingsPanel() {
-    GM_addStyle(`
+    let panel = null;
+    let pendingOpen = false;
+    const openPanel = () => {
+      if (!panel || !document.body) {
+        pendingOpen = true;
+        return;
+      }
+      if (!panel.isConnected) document.body.appendChild(panel);
+      panel.style.display = 'flex';
+    };
+    GM_registerMenuCommand('🎬 画质设置', openPanel);
+    const panelStyle = `
 #qp-panel{position:fixed;inset:0;z-index:999999;display:none;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px)}
 .qp-wrapper{width:90%;max-width:420px;padding:20px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:16px;font-size:14px;font-family:sans-serif}
 .qp-title{margin:0 0 8px;font-size:22px;font-weight:600;color:#333;border-bottom:2px solid #00aeec;padding-bottom:8px}
@@ -3713,9 +3761,18 @@ select:hover{border-color:#00aeec}
 .qp-close-btn{padding:10px;background:#00aeec;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;transition:background .2s}
 .qp-close-btn:hover{background:#0098d1}
 .qp-section-divider{height:1px;background:#e0e0e0;margin:8px 0}
-`);
+`;
+    const addPanelStyle = () => {
+      if (document.getElementById('bfq-settings-style')) return;
+      const style = document.createElement('style');
+      style.id = 'bfq-settings-style';
+      style.textContent = panelStyle;
+      (document.head || document.documentElement).appendChild(style);
+    };
+    if (document.head || document.documentElement) addPanelStyle();
+    else document.addEventListener('DOMContentLoaded', addPanelStyle, { once: true });
 
-    const panel = document.createElement('div');
+    panel = document.createElement('div');
     panel.id = 'qp-panel';
     panel.innerHTML = `
     <div class="qp-wrapper">
@@ -3752,10 +3809,10 @@ select:hover{border-color:#00aeec}
       <div class="qp-section-divider"></div>
       <div class="qp-title">🛡️ 解锁模式</div>
       <div class="qp-row">
-        <span class="qp-label">协议级解锁（推荐·无副作用）</span>
+        <span class="qp-label">协议级解锁（关闭后使用无限试用）</span>
         <span class="switch" data-key="enableProtocolUnlock" data-status="${options.enableProtocolUnlock ? 'on' : 'off'}"></span>
       </div>
-      <button class="qp-close-btn" onclick="this.parentElement.parentElement.style.display='none'">✓ 保存并关闭</button>
+      <button class="qp-close-btn" type="button">✓ 保存并关闭</button>
     </div>`;
 
     // 等待 body 加载完成再添加面板
@@ -3763,6 +3820,7 @@ select:hover{border-color:#00aeec}
       if (panel.isConnected) return;
       if (document.body) {
         document.body.appendChild(panel);
+        if (pendingOpen) { pendingOpen = false; openPanel(); }
       } else {
         document.addEventListener('DOMContentLoaded', addPanel, { once: true });
       }
@@ -3770,11 +3828,6 @@ select:hover{border-color:#00aeec}
     addPanel();
 
     /* 注册 GM 菜单 & 播放器入口 */
-    GM_registerMenuCommand('🎬 画质设置', () => {
-      addPanel();
-      panel.style.display = 'flex';
-    });
-
     let settingsEntry = null;
     const addSettingsEntry = () => {
       if (settingsEntry?.isConnected) return;
@@ -3787,7 +3840,7 @@ select:hover{border-color:#00aeec}
       settingsEntry.style.cssText = 'cursor:pointer;height:20px;line-height:20px;padding:4px 8px;transition:background .2s';
       settingsEntry.onmouseenter = () => { settingsEntry.style.background = 'rgba(0,174,236,0.1)'; };
       settingsEntry.onmouseleave = () => { settingsEntry.style.background = ''; };
-      settingsEntry.onclick = () => { panel.style.display = 'flex'; };
+      settingsEntry.onclick = openPanel;
       others.appendChild(settingsEntry);
     };
 
@@ -3814,6 +3867,7 @@ select:hover{border-color:#00aeec}
     }
 
     /* 事件绑定：即时存储 */
+    panel.querySelector('.qp-close-btn').addEventListener('click', () => { panel.style.display = 'none'; });
     panel.querySelectorAll('[data-key]').forEach(el => {
       if (el.tagName === 'SELECT') {
         el.onchange = e => {
