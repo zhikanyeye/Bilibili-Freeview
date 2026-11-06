@@ -145,6 +145,7 @@
 
   // 吞掉 SSR 写入的低质 __playinfo__，只接受 writePlayinfo 写入的高清数据
   let _playinfoCache = null;
+  let _videoMaxQn = 0;
   let _playinfoWriteAllow = false;
   let _playinfoKey = ''; // aid_cid，避免 SPA 切视频串流
   let _videoGeneration = 0;
@@ -286,7 +287,7 @@
   // 同步 localStorage 默认画质，避免 SPA 切片后按 16/360 初始化
   function patchPlayerProfileQuality() {
     try {
-      const qn = getTargetQn();
+      const qn = getEffectiveTargetQn();
       const key = 'bpx_player_profile';
       let profile = {};
       try { profile = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { profile = {}; }
@@ -302,8 +303,7 @@
   // 强制切到目标画质（协议级也走，避免卡在 480/360）
   function forcePlayerTargetQuality(reason = 'protocol') {
     try {
-      const map = { 1080: 80, 720: 64, 480: 32, 360: 16 };
-      const target = map[options.preferQuality] || 80;
+      const target = getEffectiveTargetQn();
       const player = unsafeWindow.player;
       if (!player) return false;
 
@@ -456,7 +456,7 @@
       if (!json || json.code !== 0) return;
       const player = unsafeWindow.player;
       if (!player) return;
-      const target = getTargetQn();
+      const target = getEffectiveTargetQn();
       const payload = json.data || json;
 
       // 常见内部入口：updatePlayurl / setPlayurl / reloadMedia
@@ -517,6 +517,7 @@
     const generation = ++_videoGeneration;
     _playinfoCache = null;
     _playinfoKey = '';
+    _videoMaxQn = 0;
     ensureFakeLoginCookie();
     patchPlayerProfileQuality();
     try {
@@ -624,7 +625,7 @@
       dropStarted = true;
       setInterval(() => {
         try {
-          const target = getTargetQn();
+          const target = getEffectiveTargetQn();
           const player = unsafeWindow.player;
           const cur = player?.getCurrentQuality?.();
           const supported = player?.getSupportedQualityList?.();
@@ -687,7 +688,7 @@
           scheduleForceQuality(6, 400);
           if (options.enableProtocolUnlock) {
             const cur = unsafeWindow.player?.getCurrentQuality?.();
-            if (cur != null && cur < getTargetQn() && Date.now() - lastRefetchAt > 3000) {
+            if (cur != null && cur < getEffectiveTargetQn() && Date.now() - lastRefetchAt > 3000) {
               lastRefetchAt = Date.now();
               proactiveRefetchPlayurl('media-event');
             }
@@ -1079,6 +1080,8 @@
   function writePlayinfo(json, requestKey = '', generation = _videoGeneration) {
     try {
       if (!json || json.code !== 0 || generation !== _videoGeneration) return false;
+      const declared = declaredMaxQn(json);
+      _videoMaxQn = requestKey && requestKey !== _playinfoKey ? declared : Math.max(_videoMaxQn, declared);
       if (requestKey) _playinfoKey = requestKey;
       _playinfoWriteAllow = true;
       _playinfoCache = json;
@@ -1127,6 +1130,27 @@
     return map[options.preferQuality] || PROTOCOL_UNLOCK_TARGET_QN;
   }
 
+  // 服务端声明的该视频最高画质（取 support_formats / accept_quality，未登录锁档的高清档也会被列出）
+  function declaredMaxQn(json) {
+    try {
+      const d = json?.data;
+      if (!d) return 0;
+      const list = [];
+      if (Array.isArray(d.support_formats)) d.support_formats.forEach(f => f && f.quality && list.push(f.quality));
+      if (Array.isArray(d.accept_quality)) list.push(...d.accept_quality);
+      if (!list.length && d.quality) list.push(d.quality);
+      return list.length ? Math.max(...list) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // 视频本身没有目标画质（如最高仅 720P）时，不再试图切换/重试
+  function getEffectiveTargetQn() {
+    const target = getTargetQn();
+    return _videoMaxQn > 0 ? Math.min(target, _videoMaxQn) : target;
+  }
+
   async function buildPlayurlUrl(rawUrl, useTryLook = true) {
     const url = new URL(rawUrl, location.href);
     const params = {};
@@ -1148,7 +1172,8 @@
       if (data.isPreview === 1 || data.preview === 1) return true;
       if (data.need_login === 1 || data.need_login === true) return true;
       // 必须达到用户目标档（默认 1080=80），480/360 一律视为失败并重试
-      const target = getTargetQn();
+      const declared = declaredMaxQn(json);
+      const target = declared > 0 ? Math.min(getTargetQn(), declared) : getTargetQn();
       if (data.dash && Array.isArray(data.dash.video) && data.dash.video.length > 0) {
         return Math.max(...data.dash.video.map(v => v.id || 0)) < target;
       }
@@ -1335,6 +1360,7 @@
           if (reqKey && _playinfoKey && reqKey !== _playinfoKey) {
             _playinfoCache = null;
             _playinfoKey = '';
+            _videoMaxQn = 0;
           }
           ensureFakeLoginCookie();
           patchPlayerProfileQuality();
@@ -1444,6 +1470,7 @@
           if (reqKey && _playinfoKey && reqKey !== _playinfoKey) {
             _playinfoCache = null;
             _playinfoKey = '';
+            _videoMaxQn = 0;
           }
           ensureFakeLoginCookie();
           patchPlayerProfileQuality();
