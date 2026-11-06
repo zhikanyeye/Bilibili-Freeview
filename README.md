@@ -4,10 +4,10 @@
 
 **高画质、完整只读评论与播放器增强，一份脚本集中解决。**
 
-[![Version](https://img.shields.io/badge/version-5.0.0--alpha.4-f59e0b?style=for-the-badge)](#更新日志)
+[![Version](https://img.shields.io/badge/version-5.0.0--alpha.5-f59e0b?style=for-the-badge)](#更新日志)
 [![License](https://img.shields.io/badge/license-GPL--3.0-2563eb?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-安装-f97316?style=for-the-badge)](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B)
-[![jsDelivr](https://img.shields.io/badge/jsDelivr-v5.0.0--alpha.4-f59e0b?style=for-the-badge)](#安装)
+[![jsDelivr](https://img.shields.io/badge/jsDelivr-v5.0.0--alpha.5-f59e0b?style=for-the-badge)](#安装)
 
 在未登录状态下解锁视频画质与只读评论，并提供倍速、前进后退、长按临时加速、自动暂停防护和直播分区加载兜底。登录后继续保留通用播放器控制。
 
@@ -16,7 +16,7 @@
 </div>
 
 > [!TIP]
-> 当前源码版本为 `5.0.0-alpha.4`。5.0 alpha 已发布到 jsDelivr；Greasy Fork 的版本以其页面显示为准。
+> 当前源码版本为 `5.0.0-alpha.5`。5.0 alpha 已发布到 jsDelivr；Greasy Fork 的版本以其页面显示为准。
 
 ## 主要功能
 
@@ -35,13 +35,13 @@
 | 渠道 | 安装地址 | 说明 |
 |---|---|---|
 | Greasy Fork | [安装稳定发布版](https://greasyfork.org/zh-CN/scripts/542804-bilibili-%E6%9C%AA%E7%99%BB%E5%BD%95%E8%87%AA%E7%94%B1%E7%9C%8B) | 使用平台更新机制 |
-| jsDelivr | [安装 v5.0.0-alpha.4](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Freeview@v5.0.0-alpha.4/bilibili-freeview.js) | 固定到版本标签 `v5.0.0-alpha.4` |
+| jsDelivr | [安装 v5.0.0-alpha.5](https://cdn.jsdelivr.net/gh/zhikanyeye/Bilibili-Freeview@v5.0.0-alpha.5/bilibili-freeview.js) | 固定到版本标签 `v5.0.0-alpha.5` |
 | GitHub | [查看源码](https://github.com/zhikanyeye/Bilibili-Freeview) | 查看代码、提交记录与 Issues |
 
 安装后打开支持的 B 站页面即可运行。画质、评论、直播和防登录功能建议在未登录窗口中测试。
 
 > [!IMPORTANT]
-> jsDelivr 地址固定到版本标签 `v5.0.0-alpha.4`，可避免分支后续变化影响当前安装内容。
+> jsDelivr 地址固定到版本标签 `v5.0.0-alpha.5`，可避免分支后续变化影响当前安装内容。
 
 ## 快速使用
 
@@ -136,7 +136,7 @@
 <summary><strong>展开查看技术实现</strong></summary>
 
 - **协议级解锁**：默认注入会话级 `DedeUserID`，清理低画质 SSR 数据，对 `playurl` 请求按首选画质进行 WBI 重签，并从可播放响应中选择完整媒体流。
-- **客户端兼容**：关闭协议级解锁并刷新后，使用自动点击高清试用、延长试看计时和画质掉档恢复作为备用路径。
+- **客户端兼容**：关闭协议级解锁并刷新后，使用高清试用按钮和画质掉档恢复作为备用路径；可通过脚本管理器菜单单独开关试用模式画质守护。
 - **评论读取**：直接调用 B 站评论 API 并完成 WBI 签名，在安全的评论容器内渲染只读列表。
 - **富文本显示**：根据 `rich_text_nodes` 渲染评论图片和表情；投票使用评论数据提供的标题与跳转地址。若接口未返回投票选项，脚本提供官方页面入口。
 - **播放器控制**：通过媒体倍速 setter、`ratechange`、播放器重挂载和定时校验保持用户设置。
@@ -167,6 +167,12 @@
 ## 更新日志
 
 以下内容记录各版本当时的行为。当前功能、入口和限制以前文说明为准。
+
+### v5.0.0-alpha.5 (2026-11-06)
+
+- 试用模式增加独立画质守护开关，并改进画质状态识别和操作冷却。
+- 停止改写页面全局计时器，减少对播放进度和站点功能的干扰。
+- 保留协议截流、设置面板及其他播放器增强功能。
 
 ### v5.0.0-alpha.4 (2026-11-05)
 - 提前注册用户脚本设置菜单，并在样式注入失败时继续初始化。

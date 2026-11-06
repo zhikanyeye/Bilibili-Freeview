@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili - 未登录自由看
 // @namespace    https://bilibili.com/
-// @version      5.0.0-alpha.4
+// @version      5.0.0-alpha.5
 // @description  B站观看增强：高清画质、完整只读评论、倍速、前进后退、防自动暂停和直播分区连续加载。
 // @license      GPL-3.0
 // @author       zhikanyeye
@@ -42,6 +42,7 @@
 // @grant        GM_setValue
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @run-at       document-start
 // @noframes
 // ==/UserScript==
@@ -61,9 +62,7 @@
     TOAST_CHECK_INTERVAL: 100,
     CLICK_TIMEOUT: 800,
     AUTO_RESUME_INTERVAL: 1200,
-    TRIAL_TIMEOUT: 3e8,
-    // 兜底拔高配置（fallback 内使用）
-    RE_UNLOCK_DELAY: 5000,
+    // 协议模式掉档检查间隔
     RE_UNLOCK_INTERVAL: 3000
   };
 
@@ -74,6 +73,7 @@
     enableReplyPagination: GM_getValue('enableReplyPagination', false),
     enableLiveAreaUnlock: GM_getValue('enableLiveAreaUnlock', true),
     enableProtocolUnlock: GM_getValue('enableProtocolUnlock', true),  // false 时回退旧客户端架构
+    enableTrial1080p: GM_getValue('enableTrial1080p', true),
     playbackRate: Number(GM_getValue('playbackRate', 1)) || 1,
     customPlaybackRate: Number(GM_getValue('customPlaybackRate', 1.5)) || 1.5,
     enablePlaybackRateControl: GM_getValue('enablePlaybackRateControl', true),
@@ -81,6 +81,31 @@
     seekForwardSeconds: Math.max(1, Math.min(300, Math.round(Number(GM_getValue('seekForwardSeconds', 15)) || 15))),
     holdPlaybackRate: Math.max(1, Math.min(16, Number(GM_getValue('holdPlaybackRate', 2)) || 2))
   };
+
+  let trial1080pMenuId = null;
+  let trial1080pMenuRegistered = false;
+  function registerTrial1080pMenu() {
+    try {
+      const canUnregister = typeof GM_unregisterMenuCommand === 'function';
+      if (trial1080pMenuRegistered && (!canUnregister || trial1080pMenuId == null)) return;
+      if (trial1080pMenuRegistered && canUnregister) {
+        GM_unregisterMenuCommand(trial1080pMenuId);
+      }
+      trial1080pMenuId = GM_registerMenuCommand(
+        `试用模式画质守护：${options.enableTrial1080p ? '开（点击关闭）' : '关（点击开启）'}`,
+        () => {
+          options.enableTrial1080p = !options.enableTrial1080p;
+          GM_setValue('enableTrial1080p', options.enableTrial1080p);
+          registerTrial1080pMenu();
+          console.info(`[Bilibili脚本] 试用模式画质守护已${options.enableTrial1080p ? '开启' : '关闭'}；播放器截流模式不受影响`);
+        }
+      );
+      trial1080pMenuRegistered = true;
+    } catch (e) {
+      console.warn('[Bilibili脚本] 注册试用1080P菜单失败:', e);
+    }
+  }
+  registerTrial1080pMenu();
 
   // 菜单需在其他模块之前注册，避免页面初始化异常或登录分支影响设置入口。
   installSettingsPanel();
@@ -389,18 +414,44 @@
   }
 
   function getSupportedQualityValues(player) {
-    const supported = player?.getSupportedQualityList?.();
-    if (!Array.isArray(supported)) return [];
-    return supported.map(item => Number(item && typeof item === 'object'
-      ? (item.quality ?? item.qn ?? item.value) : item)).filter(Number.isFinite);
+    try {
+      const supported = player?.getSupportedQualityList?.();
+      if (!Array.isArray(supported)) return [];
+      return supported.map(item => Number(item && typeof item === 'object'
+        ? (item.quality ?? item.qn ?? item.value) : item)).filter(value => Number.isFinite(value) && value > 0);
+    } catch (e) { return []; }
   }
 
   function getCurrentPlayerQuality(player) {
-    const current = player?.getCurrentQuality?.() ?? player?.getQuality?.();
-    const value = current && typeof current === 'object'
-      ? (current.nowQ ?? current.quality ?? current.qn) : current;
-    const quality = Number(value);
-    return value == null || !Number.isFinite(quality) ? null : quality;
+    for (const method of ['getQuality', 'getCurrentQuality']) {
+      try {
+        const current = player?.[method]?.();
+        const value = current && typeof current === 'object'
+          ? (current.nowQ ?? current.quality ?? current.qn) : current;
+        const quality = Number(value);
+        if (Number.isFinite(quality) && quality > 0) return quality;
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function getKnownQualityState(player = unsafeWindow.player) {
+    const current = getCurrentPlayerQuality(player);
+    if (current != null) return current >= getTargetQn() ? 'high' : 'low';
+    try {
+      const label = document.querySelector('.bpx-player-ctrl-quality-result, .bpx-player-ctrl-quality-name')?.textContent?.trim();
+      if (!label || /自动/.test(label)) return 'unknown';
+      if (/4K|8K|杜比|Dolby|HDR|超高清/i.test(label)) return 'high';
+      const height = label.match(/\b(360|480|720|1080|1440|2160|4320)\s*[pP]\b/);
+      if (height) return Number(height[1]) >= Number(options.preferQuality) ? 'high' : 'low';
+      return 'unknown';
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  function canForceTrialQuality(enabled, qualityState, lastActionAt = 0, now = Date.now()) {
+    return Boolean(enabled) && qualityState === 'low' && now - lastActionAt >= 5000;
   }
 
   function scheduleForceQuality(times = 12, gap = 500) {
@@ -674,6 +725,7 @@
   function installAlwaysQualityGuard() {
     if (isBilibiliLoggedIn()) return;
     if (!isPlaybackPage()) return;
+    if (!options.enableProtocolUnlock) return;
 
     let dropStarted = false;
     let lastRefetchAt = 0;
@@ -3043,7 +3095,7 @@
       const originDef = objectCtor?.defineProperty;
       if (typeof originDef !== 'function' || originDef.__bfqTrialFlagsPatched) return;
       const patched = function (obj, prop, desc) {
-      if (prop === 'isViewToday' || prop === 'isVideoAble') {
+      if (options.enableTrial1080p && (prop === 'isViewToday' || prop === 'isVideoAble')) {
         if (obj !== globalThis && obj !== unsafeWindow && obj !== window && !(obj instanceof Element)) {
           desc = { get: () => true, enumerable: !!desc?.enumerable, configurable: true };
         }
@@ -3056,50 +3108,25 @@
     patchTrialFlags(Object);
     if (unsafeWindow.Object && unsafeWindow.Object !== Object) patchTrialFlags(unsafeWindow.Object);
 
-    /* 3-2 试用倒计时延长到 3 亿秒 */
-    const originSetTimeout = unsafeWindow.setTimeout;
-    const originSetInterval = unsafeWindow.setInterval;
-    const shouldExtendTrialTimer = (fn, delayNum) => {
-      if (!Number.isFinite(delayNum) || delayNum < 15000 || delayNum > 90000) return false;
-      const fnText = typeof fn === 'function' ? String(fn) : String(fn || '');
-      return (
-        fnText.includes('试看') ||
-        fnText.includes('isViewToday') ||
-        fnText.includes('isVideoAble') ||
-        fnText.includes('absolutePlayTime') ||
-        (/login|passport|trial|quality|vip/i.test(fnText) && /pause|toast|confirm|timeout|countdown|screen/i.test(fnText))
-      );
+    // 参考用户提供的 v50 脚本：不改写全局定时器，避免干扰站点心跳与进度上报。
+    // 试用按钮与画质请求共用冷却，已达标或状态未知时不触碰播放器。
+    let lastQualityActionAt = 0;
+    let pendingTrialClick = false;
+    const clickedTrialButtons = new WeakSet();
+    const canActOnQuality = () => {
+      return isPlaybackPage() && !document.hidden && !isBilibiliLoggedIn()
+        && canForceTrialQuality(options.enableTrial1080p, getKnownQualityState(), lastQualityActionAt);
     };
-
-    unsafeWindow.setTimeout = (fn, delay, ...args) => {
-      const delayNum = Number(delay);
-      if (shouldExtendTrialTimer(fn, delayNum)) {
-        delay = CONFIG.TRIAL_TIMEOUT;
-      }
-      return originSetTimeout.call(unsafeWindow, fn, delay, ...args);
-    };
-    unsafeWindow.setInterval = (fn, delay, ...args) => {
-      const delayNum = Number(delay);
-      if (shouldExtendTrialTimer(fn, delayNum)) {
-        delay = CONFIG.TRIAL_TIMEOUT;
-      }
-      return originSetInterval.call(unsafeWindow, fn, delay, ...args);
-    };
-
-    /* 3-3 点击试用按钮 + 画质切换 + 兜底拔高 */
-    const QUALITY_MAP = { 1080: 80, 720: 64, 480: 32, 360: 16 };
-    const TARGET_QUALITY = () => QUALITY_MAP[options.preferQuality] || 80;
-
-    let qualityDropWatcherStarted = false;
-    let reUnlockTimerId = null;
 
     const requestTargetQuality = (reason = 'manual') => {
-      const target = TARGET_QUALITY();
+      if (!canActOnQuality()) return false;
+      const target = getTargetQn();
       try {
         const player = unsafeWindow.player;
         const supported = getSupportedQualityValues(player);
         if (typeof player?.requestQuality === 'function' && (!supported.length || supported.includes(target))) {
-          Promise.resolve(unsafeWindow.player.requestQuality(target)).catch((err) => {
+          lastQualityActionAt = Date.now();
+          Promise.resolve(player.requestQuality(target)).catch((err) => {
             if (!String(err?.message || err).includes('Same as current quality')) {
               console.warn('[Bilibili脚本] 画质切换失败:', err, '来源:', reason);
             }
@@ -3112,61 +3139,19 @@
       return false;
     };
 
-    // 试用后再补一次画质请求
-    const scheduleReUnlockAfterTrial = () => {
-      requestTargetQuality('reunlock-immediate');
-      startQualityDropWatcher();
-      if (reUnlockTimerId) clearTimeout(reUnlockTimerId);
-      reUnlockTimerId = originSetTimeout.call(unsafeWindow, () => {
-        requestTargetQuality('reunlock-after-trial');
-        startQualityDropWatcher();
-      }, CONFIG.RE_UNLOCK_DELAY);
-    };
-
-    // 画质掉回低时自动拔高
-    const startQualityDropWatcher = () => {
-      if (qualityDropWatcherStarted) return;
-      qualityDropWatcherStarted = true;
-
-      originSetInterval.call(unsafeWindow, () => {
-        try {
-          const cur = getCurrentPlayerQuality(unsafeWindow.player);
-          const supported = getSupportedQualityValues(unsafeWindow.player);
-          const target = TARGET_QUALITY();
-          if (cur != null && supported?.includes(target) && cur !== target) {
-            requestTargetQuality('drop-watch');
-          }
-        } catch (err) {}
-      }, CONFIG.RE_UNLOCK_INTERVAL);
-
-      try {
-        const player = unsafeWindow.player;
-        const media = player?.mediaElement?.();
-        if (media && typeof media.addEventListener === 'function') {
-          media.addEventListener('media_qualitychange' in media ? 'media_qualitychange' : 'qualitychange', () => {
-            try {
-              const cur = player?.getCurrentQuality?.();
-              const target = TARGET_QUALITY();
-              if (cur != null && cur !== target) requestTargetQuality('qualitychange-event');
-            } catch (err) {}
-          });
-        }
-      } catch (err) {}
-    };
-
-    // 使用 MutationObserver 而不是 setInterval 来监听按钮出现，性能更好
+    // 同时处理首次加载、试用到期掉档和 SPA 切换后重建的播放器。
     const observeTrialButton = () => {
       const checkTrialButton = () => {
+        if (pendingTrialClick || !canActOnQuality()) return;
         const btn = document.querySelector('.bpx-player-toast-confirm-login');
-        if (!btn) return;
-        if (btn.dataset.clicked) return;
-        btn.dataset.clicked = 'true';
+        if (!btn || clickedTrialButtons.has(btn)) { requestTargetQuality('trial-drop-watch'); return; }
+        pendingTrialClick = true;
 
         setTimeout(() => {
-          if (!btn.isConnected) return;
-          btn.click();
-          scheduleReUnlockAfterTrial();
-          startQualityDropWatcher();
+          pendingTrialClick = false;
+          if (!btn.isConnected || !canActOnQuality()) return;
+          lastQualityActionAt = Date.now();
+          try { btn.click(); clickedTrialButtons.add(btn); } catch (e) { return; }
 
           if (options.isWaitUntilHighQualityLoaded && unsafeWindow.player?.mediaElement) {
             const media = unsafeWindow.player.mediaElement();
@@ -3175,33 +3160,30 @@
               unsafeWindow.__BFQ_ALLOW_INTERNAL_PAUSE__?.();
               media.pause();
             }
+            let resumed = false;
+            const resumeAfterSwitch = () => {
+              if (resumed) return;
+              resumed = true;
+              clearInterval(checkToast);
+              if (wasPlaying && media.isConnected && !media.ended && media.paused) {
+                Promise.resolve(media.play()).catch(() => {});
+              }
+            };
             const checkToast = setInterval(() => {
               const toastTexts = document.querySelectorAll('.bpx-player-toast-text');
-              if ([...toastTexts].some(el => el.textContent.endsWith('试用中'))) {
-                if (wasPlaying) {
-                  media.play().then(() => {
-                    try {
-                      if (media.muted && media.volume === 0) { /* keep */ }
-                      else if (media.muted) { media.muted = false; }
-                    } catch (e) {}
-                  }).catch(() => {});
-                }
-                clearInterval(checkToast);
-                requestTargetQuality('trial-toast-detected');
+              if ([...toastTexts].some(el => el.textContent.endsWith('试用中')) || getKnownQualityState() === 'high') {
+                resumeAfterSwitch();
               }
             }, CONFIG.TOAST_CHECK_INTERVAL);
-            setTimeout(() => clearInterval(checkToast), 10000);
+            setTimeout(resumeAfterSwitch, 10000);
           }
-
-          setTimeout(() => requestTargetQuality('trial-button'), CONFIG.QUALITY_SWITCH_DELAY);
-          setTimeout(() => delete btn.dataset.clicked, 2000);
         }, CONFIG.BUTTON_CLICK_DELAY);
       };
 
       const observer = new MutationObserver(checkTrialButton);
       observer.observe(document.body, { childList: true, subtree: true });
       checkTrialButton();
-      originSetInterval.call(unsafeWindow, checkTrialButton, 1500);
+      setInterval(checkTrialButton, 2000);
     };
 
     if (document.body) observeTrialButton();
